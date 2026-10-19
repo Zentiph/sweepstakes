@@ -2,7 +2,7 @@
 Entrypoint for running sweepstakes.
 """
 
-from sweepstakes.types import Board, Rules
+from sweepstakes import Board, Rules
 
 
 def main() -> None:
