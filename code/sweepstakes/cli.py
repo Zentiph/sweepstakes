@@ -2,7 +2,8 @@
 
 from collections.abc import Callable
 
-from .types import Board, Rules
+from .game import Board
+from .types import Rules
 
 __all__ = ["run"]
 
