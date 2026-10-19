@@ -43,11 +43,16 @@ cd sweepstakes
 python -m venv .venv
 source .venv/bin/activate      # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e code
 ```
 
 ### Usage
 
-> WIP. Run instructions will be added as the project develops.
+```bash
+python -m sweepstakes
+```
+
+> WIP. More run instructions will be added as the project develops.
 
 ## License
 

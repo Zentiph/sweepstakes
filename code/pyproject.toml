@@ -1,2 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sweepstakes"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["sweepstakes*"]
+
+[tool.setuptools.package-data]
+sweepstakes = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
