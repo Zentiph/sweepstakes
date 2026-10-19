@@ -14,7 +14,7 @@ def ask_until_int_and(
 
     Args:
         prompt (str): The prompt to ask.
-        predicate (Callable[[int], bool] | None, optional): The predicate to check the input against. Defaults to None.
+        predicate (Callable[[int], bool] | None): The predicate to check the input against.
         error (str, optional): The error message to print on failure. Defaults to "".
 
     Returns:
@@ -51,19 +51,24 @@ def run() -> None:
         "Max mines per tile: ", predicate=lambda x: x > 0, error=parse_error
     )
 
-    rules = Rules(width, height, total_mines, max_mines_per_tile)
+    rules = None
+    while rules is None:
+        try:
+            rules = Rules(width, height, total_mines, max_mines_per_tile)
+        except ValueError as e:
+            print(e)
 
     print("\nSelected rules:", rules, end="\n\n")
 
-    seed = ask_until_int_and("Seed: ", predicate=None)
+    seed = ask_until_int_and("Seed: ", predicate=None, error=parse_error)
     safe_x = ask_until_int_and(
         "Safe cell x: ",
-        predicate=lambda x: x >= 0 and x < width,
+        predicate=lambda x: 0 <= x < width,
         error=parse_error,
     )
     safe_y = ask_until_int_and(
         "Safe cell y: ",
-        predicate=lambda x: x >= 0 and x < height,
+        predicate=lambda x: 0 <= x < height,
         error=parse_error,
     )
 
@@ -73,7 +78,12 @@ def run() -> None:
         "Safe zone radius: ", predicate=lambda x: x >= 0, error=parse_error
     )
 
-    board = Board(rules, seed, safe_cell, safe_zone_radius)
+    board = None
+    while board is None:
+        try:
+            board = Board(rules, seed, safe_cell, safe_zone_radius)
+        except ValueError as e:
+            print(e)
 
     print("\nGenerated board:")
     print(board)

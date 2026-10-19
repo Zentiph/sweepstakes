@@ -12,24 +12,31 @@ __all__ = [
 ]
 
 
-def tile_to_string(clue: int, mine_count: int) -> str:
-    """Convert a tile's info (clue, mine_count) to a printable string.
-
-    Prints a "." for 0s, the clue value for clues, or appends a "*" before the
-    value if it is a mine.
+def format_grid(cells: list[list[str]]) -> str:
+    """Lay out a grid of cell strings with row and column numbers.
 
     Args:
-        clue (int): The clue of the tile.
-        mine_count (int): The mine_count of the tile.
+        cells (list[list[str]]): The grid of cells.
 
     Returns:
-        str: The printable string.
+        str: The formatted grid.
     """
-    if mine_count > 0:
-        return f"*{mine_count}"
-    if clue == 0:
-        return "."
-    return str(clue)
+    height = len(cells)
+    width = len(cells[0])
+    label_width = len(str(height - 1))  # widest row number
+
+    header = (
+        " " * label_width
+        + " | "
+        + " ".join(f"{col:>2}" for col in range(width))
+    )
+    lines = [header, "-" * len(header)]
+    for row_i, row in enumerate(cells):
+        lines.append(
+            f"{row_i:>{label_width}} | "
+            + " ".join(f"{cell:>2}" for cell in row)
+        )
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,11 +169,19 @@ class Board:
         self.clues = clues
 
     def __str__(self) -> str:
-        lines = []
-        for row_i, clues in enumerate(self.clues):
-            tiles = []
-            for col_i, clue in enumerate(clues):
-                mine_count = self.counts[row_i, col_i]
-                tiles.append(f"{tile_to_string(clue, mine_count):>2}")
-            lines.append(" ".join(tiles))
-        return "\n".join(lines)
+        cells = [
+            [
+                Board._tile_to_string(clue, mine_count)
+                for clue, mine_count in zip(clue_row, count_row)
+            ]
+            for clue_row, count_row in zip(self.clues, self.counts)
+        ]
+        return format_grid(cells)
+
+    @staticmethod
+    def _tile_to_string(clue: int, mine_count: int) -> str:
+        if mine_count > 0:
+            return f"*{mine_count}"
+        if clue == 0:
+            return "."
+        return str(clue)
