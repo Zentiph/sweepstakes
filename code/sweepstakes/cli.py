@@ -6,6 +6,8 @@ from .types import Board, Rules
 
 __all__ = ["run"]
 
+PARSE_ERROR = "Invalid input. Please try again."
+
 
 def ask_until_int_and(
     prompt: str, *, predicate: Callable[[int], bool] | None, error: str = ""
@@ -34,57 +36,83 @@ def ask_until_int_and(
             print(error)
 
 
-def run() -> None:
-    """Run the CLI, asking for input to generate a board, then print it."""
-    parse_error = "Invalid input. Please try again."
+def ask_rules() -> Rules:
+    """Block the current thread until a valid set of rules is created.
 
-    width = ask_until_int_and(
-        "Board width: ", predicate=lambda x: x > 0, error=parse_error
-    )
-    height = ask_until_int_and(
-        "Board height: ", predicate=lambda x: x > 0, error=parse_error
-    )
-    total_mines = ask_until_int_and(
-        "Total mines: ", predicate=lambda x: x >= 0, error=parse_error
-    )
-    max_mines_per_tile = ask_until_int_and(
-        "Max mines per tile: ", predicate=lambda x: x > 0, error=parse_error
-    )
-
+    Returns:
+        Rules: The created rules.
+    """
     rules = None
     while rules is None:
+        width = ask_until_int_and(
+            "Board width: ", predicate=lambda x: x > 0, error=PARSE_ERROR
+        )
+        height = ask_until_int_and(
+            "Board height: ", predicate=lambda x: x > 0, error=PARSE_ERROR
+        )
+        total_mines = ask_until_int_and(
+            "Total mines: ", predicate=lambda x: x >= 0, error=PARSE_ERROR
+        )
+        max_mines_per_tile = ask_until_int_and(
+            "Max mines per tile: ", predicate=lambda x: x > 0, error=PARSE_ERROR
+        )
+
         try:
             rules = Rules(width, height, total_mines, max_mines_per_tile)
         except ValueError as e:
             print(e)
 
-    print("\nSelected rules:", rules, end="\n\n")
+    return rules
 
-    seed = ask_until_int_and("Seed: ", predicate=None, error=parse_error)
-    safe_x = ask_until_int_and(
-        "Safe cell x: ",
-        predicate=lambda x: 0 <= x < width,
-        error=parse_error,
-    )
-    safe_y = ask_until_int_and(
-        "Safe cell y: ",
-        predicate=lambda x: 0 <= x < height,
-        error=parse_error,
-    )
 
-    safe_cell = (safe_y, safe_x)
+def ask_board(rules: Rules) -> Board:
+    """Block the current thread until a valid board is created.
 
-    safe_zone_radius = ask_until_int_and(
-        "Safe zone radius: ", predicate=lambda x: x >= 0, error=parse_error
-    )
+    Args:
+        rules (Rules): The rules to use.
 
+    Returns:
+        Board: The created board.
+    """
     board = None
     while board is None:
         try:
+            seed = ask_until_int_and(
+                "Seed: ", predicate=None, error=PARSE_ERROR
+            )
+            safe_x = ask_until_int_and(
+                "Safe cell x: ",
+                predicate=lambda x: 0 <= x < rules.width,
+                error=PARSE_ERROR,
+            )
+            safe_y = ask_until_int_and(
+                "Safe cell y: ",
+                predicate=lambda x: 0 <= x < rules.height,
+                error=PARSE_ERROR,
+            )
+
+            safe_cell = (safe_y, safe_x)
+
+            safe_zone_radius = ask_until_int_and(
+                "Safe zone radius: ",
+                predicate=lambda x: x >= 0,
+                error=PARSE_ERROR,
+            )
+
             board = Board(rules, seed, safe_cell, safe_zone_radius)
         except ValueError as e:
             print(e)
 
+    return board
+
+
+def run() -> None:
+    """Run the CLI, asking for input to generate a board, then print it."""
+
+    rules = ask_rules()
+    print("\nSelected rules:", rules, end="\n\n")
+
+    board = ask_board(rules)
     print("\nGenerated board:")
     print(board)
     print(
