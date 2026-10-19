@@ -2,14 +2,11 @@
 Entrypoint for running sweepstakes.
 """
 
-from sweepstakes import Board, Rules
+from sweepstakes import run_cli
 
 
 def main() -> None:
-    rules = Rules(width=10, height=10, total_mines=16, max_mines_per_tile=2)
-    board = Board(rules=rules, seed=69420, safe_cell=(4, 4))
-
-    print(board)
+    run_cli()
 
 
 if __name__ == "__main__":

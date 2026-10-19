@@ -6,6 +6,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
+__all__ = [
+    "Board",
+    "Rules",
+]
+
 
 def tile_to_string(clue: int, mine_count: int) -> str:
     """Convert a tile's info (clue, mine_count) to a printable string.
@@ -14,11 +19,11 @@ def tile_to_string(clue: int, mine_count: int) -> str:
     value if it is a mine.
 
     Args:
-        clue (int): The clue of the tile
-        mine_count (int): The mine_count of the tile
+        clue (int): The clue of the tile.
+        mine_count (int): The mine_count of the tile.
 
     Returns:
-        str: The printable string
+        str: The printable string.
     """
     if mine_count > 0:
         return f"*{mine_count}"
