@@ -3,6 +3,7 @@ The core shared types for Minesweeper games.
 """
 
 from dataclasses import dataclass
+from enum import Enum, auto
 
 __all__ = [
     "Rules",
@@ -34,3 +35,11 @@ class Rules:
 
         if self.max_mines_per_tile < 1:
             raise ValueError("Max mines per tile must be at least 1.")
+
+
+class GameStatus(Enum):
+    """The status of a Minesweeper game."""
+
+    IN_PROGRESS = auto()
+    WON = auto()
+    LOST = auto()
