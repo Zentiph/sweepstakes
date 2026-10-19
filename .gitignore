@@ -1,1 +1,6 @@
+# Python tools
 .venv/
+.mypy_cache/
+
+# IDE
+.vscode/
