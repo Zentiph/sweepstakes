@@ -7,6 +7,7 @@ from enum import Enum, auto
 import numpy as np
 
 __all__ = [
+    "FlagResult",
     "GameStatus",
     "HIDDEN_CLUE",
     "Observation",
