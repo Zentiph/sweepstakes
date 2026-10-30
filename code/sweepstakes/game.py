@@ -296,6 +296,23 @@ class Game:
             seed (int): The seed to generate the board with.
             safe_zone_radius (int, optional): The radius of the safe zone. Defaults to 1.
         """
+        if safe_zone_radius < 0:
+            raise ValueError("Safe zone radius must be non-negative")
+
+        # the first reveal can be anywhere, so the mines must fit
+        # around the largest safe zone (one that isn't clipped by an edge)
+        zone_size = 2 * safe_zone_radius + 1
+        largest_zone = min(zone_size, rules.height) * min(
+            zone_size, rules.width
+        )
+        n_slots = (
+            rules.height * rules.width - largest_zone
+        ) * rules.max_mines_per_tile
+        if rules.total_mines > n_slots:
+            raise ValueError(
+                "Not enough room for the mines outside the safe zone"
+            )
+
         self.__rules = rules
         self.__seed = seed
         self.__safe_zone_radius = safe_zone_radius
