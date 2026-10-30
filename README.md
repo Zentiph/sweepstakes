@@ -26,6 +26,7 @@ sweepstakes/
 ├── data/          # Generated boards, seeds, and experiment results
 ├── resources/     # References, project notes, and presentation slides
 ├── requirements.txt
+├── requirements-dev.txt
 └── README.md
 ```
 
@@ -43,11 +44,34 @@ cd sweepstakes
 python -m venv .venv
 source .venv/bin/activate      # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e code
 ```
 
 ### Usage
 
-> WIP. Run instructions will be added as the project develops.
+```bash
+python -m sweepstakes
+```
+
+> WIP. More run instructions will be added as the project develops.
+
+### Development
+
+Install the development tools instead of `requirements.txt`:
+
+```bash
+pip install -r requirements-dev.txt
+pip install -e code
+```
+
+Run the tests, type checker, and formatter from `code/`:
+
+```bash
+cd code
+pytest
+mypy .
+ruff format .
+```
 
 ## License
 

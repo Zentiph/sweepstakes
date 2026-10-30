@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sweepstakes"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["numpy>=2.0.0,<3"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.0"]
+
+[tool.setuptools.packages.find]
+include = ["sweepstakes*"]
+
+[tool.setuptools.package-data]
+sweepstakes = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 80
+
+[tool.mypy]
+# editable installs use an import hook that mypy can't follow
+mypy_path = "$MYPY_CONFIG_FILE_DIR"
