@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "sweepstakes"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["numpy"]
+dependencies = ["numpy>=2.0.0,<3"]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest>=8.0.0"]
 
 [tool.setuptools.packages.find]
 include = ["sweepstakes*"]
@@ -22,3 +22,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 80
+
+[tool.mypy]
+# editable installs use an import hook that mypy can't follow
+mypy_path = "$MYPY_CONFIG_FILE_DIR"

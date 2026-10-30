@@ -1,5 +1,1 @@
-# array work
-numpy
-
-# testing
-pytest
+numpy>=2.0.0,<3
