@@ -4,10 +4,18 @@ The core shared types for Minesweeper games.
 
 from dataclasses import dataclass
 from enum import Enum, auto
+import numpy as np
 
 __all__ = [
+    "GameStatus",
+    "HIDDEN_CLUE",
+    "Observation",
+    "RevealResult",
     "Rules",
 ]
+
+HIDDEN_CLUE = -1
+"""The value of a clue that is hidden."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,3 +51,43 @@ class GameStatus(Enum):
     IN_PROGRESS = auto()
     WON = auto()
     LOST = auto()
+
+
+class RevealResult(Enum):
+    """The result of revealing a cell."""
+
+    # valid action results
+    SUCCESS = auto()
+    WON = auto()
+    LOST = auto()
+
+    # invalid action results
+    OFF_BOARD = auto()
+    ALREADY_REVEALED = auto()
+    FLAGGED = auto()
+    GAME_OVER = auto()
+
+
+class FlagResult(Enum):
+    """The result of flagging a cell."""
+
+    # valid action results
+    SUCCESS = auto()
+
+    # invalid action results
+    INVALID_FLAG_COUNT = auto()
+    BOARD_NOT_GENERATED = auto()
+    OFF_BOARD = auto()
+    ALREADY_REVEALED = auto()
+    GAME_OVER = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class Observation:
+    """Everything a player is allowed to know about a game."""
+
+    rules: Rules
+    clues: np.ndarray
+    flags: np.ndarray
+    mines_remaining: int
+    status: GameStatus
