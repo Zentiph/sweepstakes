@@ -101,14 +101,15 @@ def play_game(
         action = agent.act(obs)
         action_time = perf_counter() - start_time
 
-        if on_step:
-            on_step(game, action)
-
         actions += 1
         if actions >= max_alloted_actions:
             break
 
-        if not apply_action(game, action):
+        valid = apply_action(game, action)
+        if on_step:
+            on_step(game, action)
+
+        if not valid:
             failed_actions += 1
             if failed_actions >= MAX_FAILS:
                 break

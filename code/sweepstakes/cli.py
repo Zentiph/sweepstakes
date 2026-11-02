@@ -1,14 +1,26 @@
 """A CLI for playing/observing sweepstakes."""
 
 from collections.abc import Callable
+from time import sleep
 
+from .agents import AGENTS, Agent
+from .experiments import play_game
 from .game import Game
-from .types import FlagResult, GameStatus, RevealResult, Rules
+from .types import (
+    Action,
+    ActionKind,
+    FlagResult,
+    GameRecord,
+    GameStatus,
+    RevealResult,
+    Rules,
+)
 
 __all__ = ["run"]
 
 PARSE_ERROR = "Invalid input. Please try again."
 COMMAND_ERROR = "Commands: r row col | f row col [count] | h | a | q"
+STEP_PROMPT = "[Enter] next step | a: abort | q: quit "
 
 HELP = """Commands:
 r row col: Reveal a cell
@@ -196,20 +208,166 @@ def play(game: Game) -> bool:
         print("Game aborted.")
         return True
 
+    return ask_play_again()
+
+
+def ask_play_again() -> bool:
+    """Ask whether to start another game.
+
+    Returns:
+        bool: True to play again, False to quit.
+    """
     return input("\nPlay again? [Y/n] ").strip().lower() in ("", "y", "yes")
 
 
+def ask_choice(prompt: str, choices: list[str]) -> str:
+    """Block the current thread until the input is one of the choices.
+
+    Args:
+        prompt (str): The prompt to ask.
+        choices (list[str]): The allowed (lowercase) inputs.
+
+    Returns:
+        str: The chosen input.
+    """
+    while True:
+        choice = input(prompt).strip().lower()
+        if choice in choices:
+            return choice
+        print(PARSE_ERROR)
+
+
+def ask_agent() -> type[Agent]:
+    """Block the current thread until an agent is chosen from the registry.
+
+    Returns:
+        type[Agent]: The chosen agent class.
+    """
+    names = sorted(AGENTS)
+    print("Agents:", ", ".join(names))
+    return AGENTS[ask_choice("Agent: ", names)]
+
+
+def ask_delay() -> float | None:
+    """Block the current thread until a step pacing is chosen.
+
+    Returns:
+        float | None: The seconds between steps, or None to wait for Enter.
+    """
+    while True:
+        line = input("Seconds between steps (blank to step with Enter): ")
+        if not line.strip():
+            return None
+        try:
+            delay = float(line)
+            if delay >= 0:
+                return delay
+        except ValueError:
+            pass
+        print(PARSE_ERROR)
+
+
+def describe_action(game: Game, action: Action | None) -> str:
+    """Describe an agent's action.
+
+    Args:
+        game (Game): The game the action was taken in.
+        action (Action | None): The action, or None for the opening reveal.
+
+    Returns:
+        str: The description, e.g. `reveal (3, 4) [guess]`.
+    """
+    if action is None:
+        return f"reveal {game.initial_guess} [opening]"
+    if action.kind == ActionKind.FLAG:
+        return f"flag ({action.row}, {action.col}) to {action.flags}"
+    guess = " [guess]" if action.is_guess else ""
+    return f"reveal ({action.row}, {action.col}){guess}"
+
+
+def print_summary(record: GameRecord) -> None:
+    """Print a short summary of a watched game.
+
+    Args:
+        record (GameRecord): The record of the game.
+    """
+    print(
+        f"\nResult: {record.status.name.lower()}",
+        f"Cleared: {record.safe_cells_revealed}/{record.total_safe_cells}"
+        + " safe cells",
+        f"Reveals: {record.reveals}",
+        f"Guesses: {record.guesses}",
+        sep="\n",
+    )
+    if record.status == GameStatus.LOST:
+        print(f"\n{MINE_KEY}")
+
+
+def watch(rules: Rules) -> bool:
+    """Set up a game for an agent and print each of its steps.
+
+    The viewer can abort the game partway through: with `a` or `q` when
+    stepping with Enter, or with Ctrl-C during a timed pause.
+
+    Args:
+        rules (Rules): The rules to use.
+
+    Returns:
+        bool: False if the viewer quit, True otherwise.
+    """
+    agent_cls = ask_agent()
+    game = ask_game(rules)
+    agent_seed = ask_until_int_and(
+        "Agent seed: ", predicate=None, error=PARSE_ERROR
+    )
+    delay = ask_delay()
+    quit_requested = False
+
+    def on_step(game: Game, action: Action | None) -> None:
+        nonlocal quit_requested
+        print(f"\n{describe_action(game, action)}")
+        print_view(game)
+        if game.game_over:
+            return
+
+        if delay is not None:
+            try:
+                sleep(delay)
+            except KeyboardInterrupt:
+                game.abort()
+            return
+
+        command = input(STEP_PROMPT).strip().lower()
+        if command in ("a", "q"):
+            game.abort()
+            quit_requested = command == "q"
+
+    record = play_game(game, agent_cls(), agent_seed, on_step=on_step)
+    print_summary(record)
+    return not quit_requested and ask_play_again()
+
+
 def run() -> None:
-    """Run the CLI, setting up and playing games until the player quits."""
+    """Run the CLI, setting up and playing or watching games until quit."""
 
     try:
         while True:
+            mode = ask_choice(
+                "Play or watch? [p/w, q to quit] ", ["p", "w", "q"]
+            )
+            if mode == "q":
+                break
+
             rules = ask_rules()
             print("\nSelected rules:", rules, end="\n\n")
 
-            game = ask_game(rules)
-            print(f"\n{HELP}\n")
-            if not play(game):
+            if mode == "w":
+                keep_going = watch(rules)
+            else:
+                game = ask_game(rules)
+                print(f"\n{HELP}\n")
+                keep_going = play(game)
+            if not keep_going:
                 break
             print()
     except (EOFError, KeyboardInterrupt):
