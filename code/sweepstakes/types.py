@@ -8,9 +8,12 @@ from enum import Enum, auto
 import numpy as np
 
 __all__ = [
-    "FlagResult",
-    "GameStatus",
     "HIDDEN_CLUE",
+    "Action",
+    "ActionKind",
+    "FlagResult",
+    "GameRecord",
+    "GameStatus",
     "Observation",
     "RevealResult",
     "Rules",
@@ -50,9 +53,26 @@ class Rules:
 class GameStatus(Enum):
     """The status of a Minesweeper game."""
 
+    NOT_STARTED = auto()
     IN_PROGRESS = auto()
     WON = auto()
     LOST = auto()
+    ABORTED = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class GameRecord:
+    """A record of a Minesweeper game."""
+
+    status: GameStatus
+    safe_cells_revealed: int
+    total_safe_cells: int
+    reveals: int
+    guesses: int
+    time_seconds: float
+    seed: int
+    agent_name: str
+    agent_seed: int
 
 
 class RevealResult(Enum):

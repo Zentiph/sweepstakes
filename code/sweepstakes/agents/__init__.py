@@ -4,6 +4,8 @@ from typing import Protocol
 
 from ..types import Action, Observation
 
+__all__ = ["Agent"]
+
 
 class Agent(Protocol):
     """A Minesweeper agent."""

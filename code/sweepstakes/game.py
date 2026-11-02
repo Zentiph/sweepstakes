@@ -1,7 +1,7 @@
 """Core functionality for the minesweeper game engine."""
 
 from collections import deque
-from typing import Generator
+from collections.abc import Generator
 
 import numpy as np
 
@@ -329,7 +329,7 @@ class Game:
         self.__safe_cells = 0
         self.__exploded_cell: tuple[int, int] | None = None
 
-        self.__status = GameStatus.IN_PROGRESS
+        self.__status = GameStatus.NOT_STARTED
 
     def reveal(self, row: int, col: int) -> RevealResult:
         """Reveal a cell on the board.
@@ -371,6 +371,7 @@ class Game:
             )
             self.__board = board
             self.__safe_cells = board.safe_cells
+            self.__status = GameStatus.IN_PROGRESS
 
         if board.counts[row, col] > 0:
             self.__exploded_cell = (row, col)
@@ -461,6 +462,12 @@ class Game:
             status=self.__status,
         )
 
+    def abort(self) -> None:
+        """Abort the game."""
+        # don't override a win or loss
+        if not self.game_over:
+            self.__status = GameStatus.ABORTED
+
     @property
     def rules(self) -> Rules:
         """Get the rules used to generate the board.
@@ -504,7 +511,11 @@ class Game:
         Returns:
             bool: True if the game is over, False otherwise.
         """
-        return self.__status in (GameStatus.WON, GameStatus.LOST)
+        return self.__status in {
+            GameStatus.WON,
+            GameStatus.LOST,
+            GameStatus.ABORTED,
+        }
 
     @property
     def initial_guess(self) -> tuple[int, int] | None:
@@ -516,6 +527,17 @@ class Game:
             tuple[int, int] | None: The initial guess for the first move.
         """
         return self.__board.safe_cell if self.__board is not None else None
+
+    @property
+    def safe_cells(self) -> int | None:
+        """Get the number of safe cells in the board.
+
+        Returns `None` if the board has not been generated yet.
+
+        Returns:
+            int | None: The number of safe cells.
+        """
+        return self.__board.safe_cells if self.__board else None
 
     @property
     def mines_remaining(self) -> int:

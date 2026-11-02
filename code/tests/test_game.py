@@ -275,14 +275,14 @@ def test_game_starts_unrevealed(rules: Rules, seed: int):
     game = Game(rules, seed)
     obs = game.observe()
 
-    assert game.status == GameStatus.IN_PROGRESS
+    assert game.status == GameStatus.NOT_STARTED
     assert not game.game_over
     assert game.initial_guess is None
     assert np.all(obs.clues == HIDDEN_CLUE)
     assert np.all(obs.flags == 0)
     assert obs.rules == rules
     assert obs.mines_remaining == rules.total_mines
-    assert obs.status == GameStatus.IN_PROGRESS
+    assert obs.status == GameStatus.NOT_STARTED
 
 
 def test_game_properties_echo_constructor_args(rules: Rules, seed: int):
@@ -298,6 +298,7 @@ def test_game_first_reveal_builds_board_around_it(rules: Rules, seed: int):
 
     assert game.reveal(2, 7) == RevealResult.SUCCESS
     assert game.initial_guess == (2, 7)
+    assert game.status == GameStatus.IN_PROGRESS
     assert game.observe().clues[2, 7] == 0
 
 
