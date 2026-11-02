@@ -8,13 +8,14 @@ from .types import FlagResult, GameStatus, RevealResult, Rules
 __all__ = ["run"]
 
 PARSE_ERROR = "Invalid input. Please try again."
-COMMAND_ERROR = "Commands: r row col | f row col [count] | h | q"
+COMMAND_ERROR = "Commands: r row col | f row col [count] | h | a | q"
 
 HELP = """Commands:
 r row col: Reveal a cell
 f row col: Cycle a cell's flags
 f row col count: Set a cell's flags
 h: Show this help
+a: Abort this game and start a new one
 q: Quit
 
 Key:
@@ -158,21 +159,24 @@ def apply_command(game: Game, line: str) -> str | None:
     return COMMAND_ERROR
 
 
-def play(game: Game) -> None:
-    """Read commands and apply them until the game ends or the player quits.
+def play(game: Game) -> bool:
+    """Read commands and apply them until the game ends.
 
     Args:
         game (Game): The game to play.
+
+    Returns:
+        bool: False if the player quit, True otherwise.
     """
     print_view(game)
-    while game.status == GameStatus.IN_PROGRESS:
-        try:
-            line = input("\n> ")
-        except EOFError:
-            return
+    while not game.game_over:
+        line = input("\n> ")
         command = line.strip().lower()
         if command == "q":
-            return
+            return False
+        if command == "a":
+            game.abort()
+            continue
         if command in ("h", "help"):
             print(HELP)
             continue
@@ -185,17 +189,29 @@ def play(game: Game) -> None:
 
     if game.status == GameStatus.WON:
         print("You won!")
-    else:
+    elif game.status == GameStatus.LOST:
         print("You lost!")
         print(f"\n{MINE_KEY}")
+    else:
+        print("Game aborted.")
+        return True
+
+    return input("\nPlay again? [Y/n] ").strip().lower() in ("", "y", "yes")
 
 
 def run() -> None:
-    """Run the CLI, asking for input to set up a game, then playing it."""
+    """Run the CLI, setting up and playing games until the player quits."""
 
-    rules = ask_rules()
-    print("\nSelected rules:", rules, end="\n\n")
+    try:
+        while True:
+            rules = ask_rules()
+            print("\nSelected rules:", rules, end="\n\n")
 
-    game = ask_game(rules)
-    print(f"\n{HELP}\n")
-    play(game)
+            game = ask_game(rules)
+            print(f"\n{HELP}\n")
+            if not play(game):
+                break
+            print()
+    except (EOFError, KeyboardInterrupt):
+        # end of input or Ctrl-C during any prompt
+        print()
