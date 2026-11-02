@@ -4,6 +4,8 @@ import numpy as np
 
 from ..types import HIDDEN_CLUE, Action, ActionKind, Observation
 
+__all__ = ["RandomAgent"]
+
 
 class RandomAgent:
     """Reveals a uniformly random hidden, unflagged cell every turn.
