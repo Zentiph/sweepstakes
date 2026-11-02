@@ -648,3 +648,52 @@ def test_board_rejects_negative_seed(rules: Rules):
 def test_game_rejects_negative_seed(rules: Rules):
     with pytest.raises(ValueError, match="Seed"):
         Game(rules, -1)
+
+
+def test_game_abort_before_first_reveal(rules: Rules, seed: int):
+    game = Game(rules, seed)
+    game.abort()
+
+    assert game.status == GameStatus.ABORTED
+    assert game.game_over
+    assert game.reveal(0, 0) == RevealResult.GAME_OVER
+    assert game.flag(0, 0) == FlagResult.BOARD_NOT_GENERATED
+    assert game.initial_guess is None
+
+
+def test_game_abort_mid_game():
+    game, _ = corridor()
+    game.abort()
+
+    assert game.status == GameStatus.ABORTED
+    assert game.observe().status == GameStatus.ABORTED
+    assert game.reveal(0, 0) == RevealResult.GAME_OVER
+    assert game.flag(0, 0) == FlagResult.GAME_OVER
+    # mines are only shown after a loss
+    assert "*" not in str(game)
+
+
+def test_game_abort_keeps_a_loss():
+    game, _ = corridor()
+    game.reveal(0, 4)
+    game.abort()
+
+    assert game.status == GameStatus.LOST
+
+
+def test_game_abort_keeps_a_win():
+    game, _ = corridor()
+    game.reveal(0, 0)
+    game.reveal(0, 5)
+    game.reveal(0, 6)
+    game.abort()
+
+    assert game.status == GameStatus.WON
+
+
+def test_game_safe_cells(rules: Rules, seed: int):
+    game = Game(rules, seed)
+    assert game.safe_cells is None
+
+    game.reveal(4, 4)
+    assert game.safe_cells == Board(rules, seed, (4, 4)).safe_cells
