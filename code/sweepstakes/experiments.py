@@ -8,6 +8,7 @@ from .agents import Agent
 from .game import Game
 from .types import (
     HIDDEN_CLUE,
+    Action,
     ActionKind,
     FlagResult,
     GameRecord,
@@ -19,6 +20,34 @@ MAX_FAILS = 20
 """
 How many invalid actions an agent is allowed to make before force-ending a game.
 """
+
+VALID_REVEALS = frozenset(
+    {RevealResult.SUCCESS, RevealResult.WON, RevealResult.LOST}
+)
+"""Reveal results that count as a valid move."""
+
+
+def apply_action(game: Game, action: Action) -> bool:
+    """Apply an agent's action to a game.
+
+    Args:
+        game (Game): The game to apply the action to.
+        action (Action): The action to apply.
+
+    Returns:
+        bool: True if the action was valid, False otherwise.
+    """
+    if action.kind == ActionKind.REVEAL:
+        return game.reveal(action.row, action.col) in VALID_REVEALS
+
+    # ActionKind.FLAG
+    # disallow agents to cycle flags
+    if action.flags is None:
+        return False
+    return (
+        game.flag(action.row, action.col, flags=action.flags)
+        == FlagResult.SUCCESS
+    )
 
 
 def play_game(game: Game, agent: Agent, agent_seed: int) -> GameRecord:
@@ -63,39 +92,18 @@ def play_game(game: Game, agent: Agent, agent_seed: int) -> GameRecord:
         if actions >= max_alloted_actions:
             break
 
-        if action.kind == ActionKind.REVEAL:
-            reveal_result = game.reveal(action.row, action.col)
-            # invalid move
-            if reveal_result not in {
-                RevealResult.SUCCESS,
-                RevealResult.WON,
-                RevealResult.LOST,
-            }:
-                failed_actions += 1
-                if failed_actions >= MAX_FAILS:
-                    break
-            else:  # valid
-                # only update metrics data on successful reveals
-                # agents shouldn't be making invalid reveals
-                # unless they're buggy, and flags are unnecessary to track
-                # for performance and are simply present for visualization
-                reveals += 1
-                guesses += action.is_guess
-                total_time += action_time
-
-        else:  # ActionKind.FLAG
-            if action.flags is None:
-                # disallow agents to cycle flags
-                flag_result = FlagResult.INVALID_FLAG_COUNT
-            else:
-                flag_result = game.flag(
-                    action.row, action.col, flags=action.flags
-                )
-
-            if flag_result != FlagResult.SUCCESS:
-                failed_actions += 1
-                if failed_actions >= MAX_FAILS:
-                    break
+        if not apply_action(game, action):
+            failed_actions += 1
+            if failed_actions >= MAX_FAILS:
+                break
+        elif action.kind == ActionKind.REVEAL:
+            # only update metrics data on successful reveals
+            # agents shouldn't be making invalid reveals
+            # unless they're buggy, and flags are unnecessary to track
+            # for performance and are simply present for visualization
+            reveals += 1
+            guesses += action.is_guess
+            total_time += action_time
 
     # if the game was cancelled due to alternate failure
     # (too many reveals, too many mistakes, etc.)
