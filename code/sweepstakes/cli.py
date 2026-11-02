@@ -1,6 +1,7 @@
 """A CLI for playing/observing sweepstakes."""
 
-from collections.abc import Callable
+import argparse
+from collections.abc import Callable, Sequence
 from time import sleep
 
 from .agents import AGENTS, Agent
@@ -54,6 +55,112 @@ FLAG_ERRORS = {
 }
 
 
+def at_least(minimum: int) -> Callable[[str], int]:
+    """Make an argparse type that parses an int of at least `minimum`.
+
+    Args:
+        minimum (int): The smallest allowed value.
+
+    Returns:
+        Callable[[str], int]: The argparse type.
+    """
+
+    def parse(text: str) -> int:
+        value = int(text)
+        if value < minimum:
+            raise argparse.ArgumentTypeError(f"must be at least {minimum}")
+        return value
+
+    return parse
+
+
+def non_negative_float(text: str) -> float:
+    """Parse a non-negative float for argparse.
+
+    Args:
+        text (str): The text to parse.
+
+    Returns:
+        float: The parsed float.
+    """
+    value = float(text)
+    if value < 0:
+        raise argparse.ArgumentTypeError("must be non-negative")
+    return value
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse the command line options.
+
+    Every option is optional. Any option given skips its prompt, for every
+    game in the session.
+
+    Args:
+        argv (Sequence[str] | None, optional): The arguments to parse.
+        Defaults to None, which reads `sys.argv`.
+
+    Returns:
+        argparse.Namespace: The parsed options, None for any left out.
+    """
+    parser = argparse.ArgumentParser(
+        prog="python -m sweepstakes",
+        description="Play Minesweeper, or watch an agent play it. "
+        + "Options skip their prompts; anything left out is asked for.",
+    )
+    parser.add_argument("--mode", choices=["play", "watch"])
+
+    board = parser.add_argument_group("board")
+    board.add_argument("--width", type=at_least(1))
+    board.add_argument("--height", type=at_least(1))
+    board.add_argument("--mines", type=at_least(0), help="total mines")
+    board.add_argument(
+        "--max-stack", type=at_least(1), help="max mines per tile"
+    )
+    board.add_argument("--seed", type=at_least(0), help="board seed")
+    board.add_argument("--radius", type=at_least(0), help="safe zone radius")
+
+    watch = parser.add_argument_group("watch mode")
+    watch.add_argument("--agent", choices=sorted(AGENTS))
+    watch.add_argument("--agent-seed", type=at_least(0))
+    pacing = watch.add_mutually_exclusive_group()
+    pacing.add_argument(
+        "--delay",
+        type=non_negative_float,
+        metavar="SECONDS",
+        help="pause between steps",
+    )
+    pacing.add_argument(
+        "--step", action="store_true", help="press Enter between steps"
+    )
+
+    args = parser.parse_args(argv)
+    check_presets(parser, args)
+    return args
+
+
+def check_presets(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    """Exit with an error if the preset board options can never make a game.
+
+    Without this, the prompts for the remaining options would loop forever.
+
+    Args:
+        parser (argparse.ArgumentParser): The parser to report errors with.
+        args (argparse.Namespace): The parsed options.
+    """
+    values = (args.width, args.height, args.mines, args.max_stack)
+    if None in values:
+        return  # the prompted values can still fix the rules
+
+    try:
+        rules = Rules(*values)
+        # a prompted radius can always be 0
+        Game(rules, 0, args.radius if args.radius is not None else 0)
+    except ValueError as e:
+        parser.error(str(e))
+
+
 def ask_until_int_and(
     prompt: str, *, predicate: Callable[[int], bool] | None, error: str = ""
 ) -> int:
@@ -81,59 +188,100 @@ def ask_until_int_and(
             print(error)
 
 
-def ask_rules() -> Rules:
+def preset_or_ask(
+    preset: int | None, prompt: str, predicate: Callable[[int], bool]
+) -> int:
+    """Use a preset value, or ask for one if there is none.
+
+    Args:
+        preset (int | None): The preset value from the command line.
+        prompt (str): The prompt to ask.
+        predicate (Callable[[int], bool]): The predicate to check the input against.
+
+    Returns:
+        int: The preset or asked value.
+    """
+    if preset is not None:
+        return preset
+    return ask_until_int_and(prompt, predicate=predicate, error=PARSE_ERROR)
+
+
+def ask_rules(args: argparse.Namespace) -> Rules:
     """Block the current thread until a valid set of rules is created.
+
+    Args:
+        args (argparse.Namespace): The command line options.
 
     Returns:
         Rules: The created rules.
     """
-    rules = None
-    while rules is None:
-        width = ask_until_int_and(
-            "Board width: ", predicate=lambda x: x > 0, error=PARSE_ERROR
+    while True:
+        width = preset_or_ask(args.width, "Board width: ", lambda x: x > 0)
+        height = preset_or_ask(args.height, "Board height: ", lambda x: x > 0)
+        total_mines = preset_or_ask(
+            args.mines, "Total mines: ", lambda x: x >= 0
         )
-        height = ask_until_int_and(
-            "Board height: ", predicate=lambda x: x > 0, error=PARSE_ERROR
-        )
-        total_mines = ask_until_int_and(
-            "Total mines: ", predicate=lambda x: x >= 0, error=PARSE_ERROR
-        )
-        max_mines_per_tile = ask_until_int_and(
-            "Max mines per tile: ", predicate=lambda x: x > 0, error=PARSE_ERROR
+        max_mines_per_tile = preset_or_ask(
+            args.max_stack, "Max mines per tile: ", lambda x: x > 0
         )
 
         try:
-            rules = Rules(width, height, total_mines, max_mines_per_tile)
+            return Rules(width, height, total_mines, max_mines_per_tile)
         except ValueError as e:
             print(e)
 
-    return rules
 
-
-def ask_game(rules: Rules) -> Game:
-    """Block the current thread until a valid game is created.
+def ask_game(rules: Rules, args: argparse.Namespace) -> Game | None:
+    """Ask for the seed and safe zone radius, and create a game.
 
     Args:
         rules (Rules): The rules to use.
+        args (argparse.Namespace): The command line options.
+
+    Returns:
+        Game | None: The created game, or None if the rules don't fit.
+    """
+    seed = preset_or_ask(args.seed, "Seed: ", lambda x: x >= 0)
+    safe_zone_radius = preset_or_ask(
+        args.radius, "Safe zone radius: ", lambda x: x >= 0
+    )
+
+    try:
+        return Game(rules, seed, safe_zone_radius)
+    except ValueError as e:
+        print(e)
+        return None
+
+
+def ask_setup(args: argparse.Namespace) -> Game:
+    """Block the current thread until the rules and a valid game are created.
+
+    Args:
+        args (argparse.Namespace): The command line options.
 
     Returns:
         Game: The created game.
     """
-    game = None
-    while game is None:
-        seed = ask_until_int_and("Seed: ", predicate=None, error=PARSE_ERROR)
-        safe_zone_radius = ask_until_int_and(
-            "Safe zone radius: ",
-            predicate=lambda x: x >= 0,
-            error=PARSE_ERROR,
-        )
+    while True:
+        rules = ask_rules(args)
+        print("\nSelected rules:", rules, end="\n\n")
 
-        try:
-            game = Game(rules, seed, safe_zone_radius)
-        except ValueError as e:
-            print(e)
+        while True:
+            game = ask_game(rules, args)
+            if game is not None:
+                return game
+            if args.radius is not None:
+                break  # the preset radius doesn't fit, so change the rules
 
-    return game
+
+def ask_mode() -> str:
+    """Ask whether to play, watch, or quit.
+
+    Returns:
+        str: "play", "watch", or "quit".
+    """
+    choice = ask_choice("Play or watch? [p/w, q to quit] ", ["p", "w", "q"])
+    return {"p": "play", "w": "watch", "q": "quit"}[choice]
 
 
 def print_view(game: Game) -> None:
@@ -223,17 +371,20 @@ def ask_play_again() -> bool:
 def ask_choice(prompt: str, choices: list[str]) -> str:
     """Block the current thread until the input is one of the choices.
 
+    The input is matched case-insensitively.
+
     Args:
         prompt (str): The prompt to ask.
-        choices (list[str]): The allowed (lowercase) inputs.
+        choices (list[str]): The allowed inputs.
 
     Returns:
-        str: The chosen input.
+        str: The chosen input, as written in `choices`.
     """
+    by_lowercase = {choice.lower(): choice for choice in choices}
     while True:
         choice = input(prompt).strip().lower()
-        if choice in choices:
-            return choice
+        if choice in by_lowercase:
+            return by_lowercase[choice]
         print(PARSE_ERROR)
 
 
@@ -248,12 +399,20 @@ def ask_agent() -> type[Agent]:
     return AGENTS[ask_choice("Agent: ", names)]
 
 
-def ask_delay() -> float | None:
+def ask_delay(args: argparse.Namespace) -> float | None:
     """Block the current thread until a step pacing is chosen.
+
+    Args:
+        args (argparse.Namespace): The command line options.
 
     Returns:
         float | None: The seconds between steps, or None to wait for Enter.
     """
+    if args.step:
+        return None
+    if args.delay is not None:
+        return float(args.delay)
+
     while True:
         line = input("Seconds between steps (blank to step with Enter): ")
         if not line.strip():
@@ -303,68 +462,85 @@ def print_summary(record: GameRecord) -> None:
         print(f"\n{MINE_KEY}")
 
 
-def watch(rules: Rules) -> bool:
-    """Set up a game for an agent and print each of its steps.
-
-    The viewer can abort the game partway through: with `a` or `q` when
-    stepping with Enter, or with Ctrl-C during a timed pause.
+def pause(game: Game, delay: float | None) -> str:
+    """Wait between watched steps, aborting the game if the viewer asks.
 
     Args:
-        rules (Rules): The rules to use.
+        game (Game): The game being watched.
+        delay (float | None): The seconds to wait, or None to wait for Enter.
+
+    Returns:
+        str: "q" if the viewer quit, "a" if they aborted, "" otherwise.
+    """
+    try:
+        if delay is not None:
+            sleep(delay)
+            return ""
+        command = input(STEP_PROMPT).strip().lower()
+    except KeyboardInterrupt:
+        print()
+        command = "a"
+
+    if command not in ("a", "q"):
+        return ""
+    game.abort()
+    return command
+
+
+def watch(game: Game, args: argparse.Namespace) -> bool:
+    """Have an agent play a game, printing each of its steps.
+
+    The viewer can abort the game partway through: with `a` or `q` when
+    stepping with Enter, or with Ctrl-C during any pause.
+
+    Args:
+        game (Game): The game for the agent to play.
+        args (argparse.Namespace): The command line options.
 
     Returns:
         bool: False if the viewer quit, True otherwise.
     """
-    agent_cls = ask_agent()
-    game = ask_game(rules)
-    agent_seed = ask_until_int_and(
-        "Agent seed: ", predicate=None, error=PARSE_ERROR
+    agent_cls = AGENTS[args.agent] if args.agent else ask_agent()
+    agent_seed = preset_or_ask(
+        args.agent_seed, "Agent seed: ", lambda x: x >= 0
     )
-    delay = ask_delay()
-    quit_requested = False
+    delay = ask_delay(args)
+    viewer_stop = ""
 
     def on_step(game: Game, action: Action | None) -> None:
-        nonlocal quit_requested
+        nonlocal viewer_stop
         print(f"\n{describe_action(game, action)}")
         print_view(game)
-        if game.game_over:
-            return
-
-        if delay is not None:
-            try:
-                sleep(delay)
-            except KeyboardInterrupt:
-                game.abort()
-            return
-
-        command = input(STEP_PROMPT).strip().lower()
-        if command in ("a", "q"):
-            game.abort()
-            quit_requested = command == "q"
+        if not game.game_over:
+            viewer_stop = pause(game, delay)
 
     record = play_game(game, agent_cls(), agent_seed, on_step=on_step)
     print_summary(record)
-    return not quit_requested and ask_play_again()
+    if viewer_stop:
+        # like play mode: abort starts a new game, quit ends the session
+        return viewer_stop == "a"
+    return ask_play_again()
 
 
-def run() -> None:
-    """Run the CLI, setting up and playing or watching games until quit."""
+def run(argv: Sequence[str] | None = None) -> None:
+    """Run the CLI, setting up and playing or watching games until quit.
+
+    Args:
+        argv (Sequence[str] | None, optional): The command line arguments.
+        Defaults to None, which reads `sys.argv`.
+    """
+    args = parse_args(argv)
 
     try:
         while True:
-            mode = ask_choice(
-                "Play or watch? [p/w, q to quit] ", ["p", "w", "q"]
-            )
-            if mode == "q":
+            mode = args.mode or ask_mode()
+            if mode == "quit":
                 break
 
-            rules = ask_rules()
-            print("\nSelected rules:", rules, end="\n\n")
-
-            if mode == "w":
-                keep_going = watch(rules)
+            game = ask_setup(args)
+            if mode == "watch":
+                keep_going = watch(game, args)
             else:
-                game = ask_game(rules)
                 print(f"\n{HELP}\n")
                 keep_going = play(game)
             if not keep_going:

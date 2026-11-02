@@ -60,17 +60,21 @@ def format_grid(cells: list[list[str]]) -> str:
     height = len(cells)
     width = len(cells[0])
     label_width = len(str(height - 1))  # widest row number
+    # widest of the column numbers and cells (e.g. *10), at least 2
+    cell_width = max(
+        2, len(str(width - 1)), *(len(cell) for row in cells for cell in row)
+    )
 
     header = (
         " " * label_width
         + " | "
-        + " ".join(f"{col:>2}" for col in range(width))
+        + " ".join(f"{col:>{cell_width}}" for col in range(width))
     )
     lines = [header, "-" * len(header)]
     for row_i, row in enumerate(cells):
         lines.append(
             f"{row_i:>{label_width}} | "
-            + " ".join(f"{cell:>2}" for cell in row)
+            + " ".join(f"{cell:>{cell_width}}" for cell in row)
         )
     return "\n".join(lines)
 
@@ -101,7 +105,13 @@ class Board:
             seed (int): The seed for the random number generator.
             safe_cell (tuple[int, int]): The initial safe cell (y, x).
             safe_zone_radius (int, optional): The radius of the initial safe zone. Defaults to 1.
+
+        Raises:
+            ValueError: If the seed or safe zone radius is negative, the safe
+            cell is off the board, or the mines don't fit outside the safe zone.
         """
+        if seed < 0:
+            raise ValueError("Seed must be non-negative")
         if (
             safe_cell[0] < 0
             or safe_cell[1] < 0
@@ -296,7 +306,13 @@ class Game:
             rules (Rules): The rules for the game.
             seed (int): The seed to generate the board with.
             safe_zone_radius (int, optional): The radius of the safe zone. Defaults to 1.
+
+        Raises:
+            ValueError: If the seed or safe zone radius is negative, or the
+            mines don't fit around a safe zone at every possible first reveal.
         """
+        if seed < 0:
+            raise ValueError("Seed must be non-negative")
         if safe_zone_radius < 0:
             raise ValueError("Safe zone radius must be non-negative")
 
@@ -463,7 +479,10 @@ class Game:
         )
 
     def abort(self) -> None:
-        """Abort the game."""
+        """Abort the game.
+
+        Does nothing if the game is already won or lost.
+        """
         # don't override a win or loss
         if not self.game_over:
             self.__status = GameStatus.ABORTED
@@ -558,7 +577,7 @@ class Game:
                 if not self.__revealed[nr, nc] and not self.__flags[nr, nc]:
                     # reveal each neighbor
                     self.__revealed[nr, nc] = True
-                    # if the neighbor's clue is 0, reveal it's neighbors
+                    # if the neighbor's clue is 0, reveal its neighbors
                     if self.__board.clues[nr, nc] == 0:
                         queue.append((nr, nc))
 

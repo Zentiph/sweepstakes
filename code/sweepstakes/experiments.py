@@ -18,6 +18,10 @@ from .types import (
 )
 
 StepHook = Callable[[Game, Action | None], None]
+"""
+Called with the game after each action is applied, or with None for the action
+after the opening reveal. May call `game.abort()` to stop the game early.
+"""
 
 
 MAX_FAILS = 20
@@ -66,11 +70,14 @@ def play_game(
     The first chosen cell is always the middle cell, calculated from
     `game.rules.height // 2` and `game.rules.width // 2`.
 
+    The game is aborted if the agent makes `MAX_FAILS` invalid actions, or
+    runs out of its action budget (`height * width * (max_mines_per_tile + 2)`).
+
     Args:
         game (Game): The game to play.
         agent (Agent): The agent to play with.
         agent_seed (int): The seed to use for the agent.
-        on_step (StepHook | None, optional): A hook to call after each step. Defaults to None.
+        on_step (StepHook | None, optional): A hook to call after each step. See `StepHook`. Defaults to None.
 
     Returns:
         GameRecord: The game record.

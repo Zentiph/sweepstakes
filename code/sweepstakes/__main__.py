@@ -6,6 +6,7 @@ from sweepstakes import run_cli
 
 
 def main() -> None:
+    """Run the CLI with the command line arguments."""
     run_cli()
 
 

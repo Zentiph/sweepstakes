@@ -2,11 +2,12 @@
 
 import numpy as np
 import pytest
+
 from sweepstakes.game import Board, Game, format_grid, get_neighbors
 from sweepstakes.types import (
+    HIDDEN_CLUE,
     FlagResult,
     GameStatus,
-    HIDDEN_CLUE,
     RevealResult,
     Rules,
 )
@@ -146,10 +147,7 @@ def test_get_neighbors_of_single_cell_board_is_empty():
 
 def test_format_grid():
     assert format_grid([["1", "."], ["#", "F1"]]) == (
-        "  |  0  1\n"  #
-        "---------\n"
-        "0 |  1  .\n"
-        "1 |  # F1"
+        "  |  0  1\n---------\n0 |  1  .\n1 |  # F1"
     )
 
 
@@ -628,3 +626,25 @@ def test_game_str_shows_mines_after_loss():
     game.reveal(0, 1)
 
     assert str(game).splitlines()[2].split()[2:] == ["1", "X", "#", "*1"]
+
+
+def test_format_grid_widens_columns_for_wide_cells():
+    assert format_grid([["*10", "."], ["F12", "1"]]) == (
+        "  |   0   1\n-----------\n0 | *10   .\n1 | F12   1"
+    )
+
+
+def test_format_grid_widens_columns_for_wide_column_numbers():
+    header = format_grid([["."] * 101]).splitlines()[0]
+
+    assert header.endswith(" 99 100")
+
+
+def test_board_rejects_negative_seed(rules: Rules):
+    with pytest.raises(ValueError, match="Seed"):
+        Board(rules, -1, (4, 4))
+
+
+def test_game_rejects_negative_seed(rules: Rules):
+    with pytest.raises(ValueError, match="Seed"):
+        Game(rules, -1)

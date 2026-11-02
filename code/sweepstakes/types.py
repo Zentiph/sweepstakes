@@ -25,12 +25,18 @@ HIDDEN_CLUE = -1
 
 @dataclass(frozen=True, slots=True)
 class Rules:
-    """The rules of a Minesweeper game."""
+    """The rules of a Minesweeper game.
+
+    Raises:
+        ValueError: If a dimension or max_mines_per_tile is below 1, or the
+        mines can't fit on the board.
+    """
 
     width: int
     height: int
     total_mines: int
     max_mines_per_tile: int
+    """How many mines can stack on one tile. 1 for standard Minesweeper."""
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.height < 1:
@@ -62,15 +68,21 @@ class GameStatus(Enum):
 
 @dataclass(frozen=True, slots=True)
 class GameRecord:
-    """A record of a Minesweeper game."""
+    """A record of a Minesweeper game played by an agent."""
 
     status: GameStatus
+    """ABORTED if the agent hit an action limit or a viewer stopped it."""
     safe_cells_revealed: int
     total_safe_cells: int
+    """-1 if the board was never generated."""
     reveals: int
+    """Valid reveals made by the agent, not counting the opening reveal."""
     guesses: int
+    """How many of the valid reveals were guesses."""
     time_seconds: float
+    """Time the agent spent choosing its valid reveals."""
     seed: int
+    """The board seed."""
     agent_name: str
     agent_seed: int
 
@@ -110,8 +122,11 @@ class Observation:
 
     rules: Rules
     clues: np.ndarray
+    """Read-only clue per cell, or HIDDEN_CLUE for unrevealed cells."""
     flags: np.ndarray
+    """Read-only flag count per cell."""
     mines_remaining: int
+    """Total mines minus flags placed. Negative when over-flagged."""
     status: GameStatus
 
 

@@ -4,11 +4,12 @@ from dataclasses import FrozenInstanceError
 
 import numpy as np
 import pytest
+
 from sweepstakes import types
 from sweepstakes.types import (
+    HIDDEN_CLUE,
     FlagResult,
     GameStatus,
-    HIDDEN_CLUE,
     Observation,
     RevealResult,
     Rules,
