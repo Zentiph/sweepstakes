@@ -4,6 +4,7 @@ The core shared types for Minesweeper games.
 
 from dataclasses import dataclass
 from enum import Enum, auto
+
 import numpy as np
 
 __all__ = [
@@ -32,6 +33,9 @@ class Rules:
         if self.width < 1 or self.height < 1:
             raise ValueError("Dimensions must be at least 1.")
 
+        if self.max_mines_per_tile < 1:
+            raise ValueError("Max mines per tile must be at least 1.")
+
         if (
             self.total_mines < 0
             or self.total_mines
@@ -41,9 +45,6 @@ class Rules:
                 "Total mines must be between 0 and "
                 + "width * height * max_mines_per_tile."
             )
-
-        if self.max_mines_per_tile < 1:
-            raise ValueError("Max mines per tile must be at least 1.")
 
 
 class GameStatus(Enum):
@@ -92,3 +93,23 @@ class Observation:
     flags: np.ndarray
     mines_remaining: int
     status: GameStatus
+
+
+class ActionKind(Enum):
+    """A kind of action that can be taken in a game."""
+
+    REVEAL = auto()
+    FLAG = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class Action:
+    """An action that can be taken in a game."""
+
+    kind: ActionKind
+    row: int
+    col: int
+    flags: int | None = None
+    """The number of flags placed if kind is FLAG. Otherwise None."""
+    is_guess: bool = False
+    """Whether the action is a guess (could not be determined through logic)."""

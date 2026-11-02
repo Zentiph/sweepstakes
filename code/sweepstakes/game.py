@@ -1,17 +1,18 @@
 """Core functionality for the minesweeper game engine."""
 
+from collections import deque
+from typing import Generator
+
 import numpy as np
 
 from .types import (
-    Rules,
-    GameStatus,
-    RevealResult,
-    FlagResult,
-    Observation,
     HIDDEN_CLUE,
+    FlagResult,
+    GameStatus,
+    Observation,
+    RevealResult,
+    Rules,
 )
-from typing import Generator
-from collections import deque
 
 __all__ = ["Board", "Game"]
 

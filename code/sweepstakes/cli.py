@@ -1,4 +1,4 @@
-"""A basic CLI for running/testing sweepstakes."""
+"""A CLI for playing/observing sweepstakes."""
 
 from collections.abc import Callable
 
