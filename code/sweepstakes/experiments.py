@@ -1,5 +1,6 @@
 """Test the agents against the game."""
 
+from collections.abc import Callable
 from time import perf_counter
 
 import numpy as np
@@ -15,6 +16,9 @@ from .types import (
     GameStatus,
     RevealResult,
 )
+
+StepHook = Callable[[Game, Action | None], None]
+
 
 MAX_FAILS = 20
 """
@@ -50,7 +54,13 @@ def apply_action(game: Game, action: Action) -> bool:
     )
 
 
-def play_game(game: Game, agent: Agent, agent_seed: int) -> GameRecord:
+def play_game(
+    game: Game,
+    agent: Agent,
+    agent_seed: int,
+    *,
+    on_step: StepHook | None = None,
+) -> GameRecord:
     """Make an agent play a game of minesweeper.
 
     The first chosen cell is always the middle cell, calculated from
@@ -60,6 +70,7 @@ def play_game(game: Game, agent: Agent, agent_seed: int) -> GameRecord:
         game (Game): The game to play.
         agent (Agent): The agent to play with.
         agent_seed (int): The seed to use for the agent.
+        on_step (StepHook | None, optional): A hook to call after each step. Defaults to None.
 
     Returns:
         GameRecord: The game record.
@@ -68,6 +79,8 @@ def play_game(game: Game, agent: Agent, agent_seed: int) -> GameRecord:
 
     agent.reset(agent_seed)
     game.reveal(game.rules.height // 2, game.rules.width // 2)
+    if on_step:
+        on_step(game, None)
 
     max_alloted_actions = (
         game.rules.height
@@ -87,6 +100,9 @@ def play_game(game: Game, agent: Agent, agent_seed: int) -> GameRecord:
         start_time = perf_counter()
         action = agent.act(obs)
         action_time = perf_counter() - start_time
+
+        if on_step:
+            on_step(game, action)
 
         actions += 1
         if actions >= max_alloted_actions:
